@@ -99,13 +99,36 @@ The web UI guides you through everything:
 - **📧 View All Emails** - Browse with importance scores
 - **📈 Statistics** - See email patterns and insights
 
-## 📸 Screenshots
 
-> **Note:** Add actual screenshots to `docs/screenshots/` directory. See `docs/SCREENSHOTS.md` for guide.
+### 📊 Main Dashboard
 
-![Dashboard](docs/screenshots/dashboard.png) | ![Onboarding](docs/screenshots/onboarding.png) | ![Feedback](docs/screenshots/feedback.png) | ![Brief](docs/screenshots/brief.png)
-:---:|:---:|:---:
-*Main Dashboard* | *Onboarding Flow* | *Daily Brief*
+![Dashboard](docs/screenshots/dashboard.png)
+
+*Your command center - see everything at a glance without opening Gmail*
+
+---
+
+### 🎯 Onboarding Flow
+
+![Onboarding](docs/screenshots/onboarding.png)
+
+*Guided setup with OAuth configuration and email training*
+
+---
+
+### 💬 Feedback Interface
+
+![Feedback](docs/screenshots/feedback.png)
+
+*Mark emails as important/not important to help the AI learn your preferences*
+
+---
+
+### 📬 Daily Brief
+
+![Brief](docs/screenshots/brief.png)
+
+*AI-generated summary with top important emails and actionable insights*
 
 ## 📐 Architecture
 
@@ -162,3 +185,4 @@ This project is open source and available under the MIT License.
 ---
 
 **Made with ❤️ to help you focus on what matters**
+**If you find it useful and productive, ⭐ this repository**
