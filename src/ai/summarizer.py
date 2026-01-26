@@ -120,13 +120,8 @@ Do NOT use markdown. Use proper HTML tags only."""
             # Clean up extra whitespace
             brief_html = re.sub(r'\n{3,}', '\n\n', brief_html)
             
-            # Add HTML header if not present
-            if 'brief-header' not in brief_html:
-                header = f'''<div class="brief-header">
-                    <h1>📬 Daily Email Brief</h1>
-                    <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 16px;">Total emails reviewed: {len(emails)} | Top {len(top_emails)} important emails</p>
-                </div>'''
-                brief_html = header + brief_html
+            # Don't add header - dashboard already has one
+            # Just return the brief content directly
             
             return brief_html
             

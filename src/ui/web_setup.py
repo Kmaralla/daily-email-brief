@@ -213,13 +213,22 @@ HOME_HTML = """
         </div>
 
         <div class="providers-grid">
-            <a href="{% if gmail_connected %}/dashboard{% else %}/setup/gmail{% endif %}" class="provider-card">
-                <div class="provider-icon">📧</div>
-                <div class="provider-name">Gmail</div>
-                <div class="provider-status {% if gmail_connected %}status-connected{% else %}status-not-connected{% endif %}">
-                    {% if gmail_connected %}✓ Connected{% else %}Not Connected{% endif %}
-                </div>
-            </a>
+            <div style="position: relative; display: inline-block; width: 100%;">
+                <a href="{% if gmail_connected %}/dashboard{% else %}/setup/gmail{% endif %}" class="provider-card" style="position: relative;">
+                    <div class="provider-icon">📧</div>
+                    <div class="provider-name">Gmail</div>
+                    <div class="provider-status {% if gmail_connected %}status-connected{% else %}status-not-connected{% endif %}">
+                        {% if gmail_connected %}✓ Connected{% else %}Not Connected{% endif %}
+                    </div>
+                    {% if gmail_connected %}
+                    <form method="POST" action="/setup/reset-credentials" style="position: absolute; top: 15px; right: 15px; z-index: 20; margin: 0;" onsubmit="event.stopPropagation(); return confirm('Are you sure you want to unlink Gmail? This will reset your connection and you\\'ll need to reconnect.');">
+                        <button type="submit" style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(220, 38, 38, 0.4)';" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 8px rgba(220, 38, 38, 0.3)';">
+                            🔄 Unlink
+                        </button>
+                    </form>
+                    {% endif %}
+                </a>
+            </div>
 
             <a href="/setup/outlook" class="provider-card coming-soon">
                 <div class="provider-icon">📮</div>
@@ -587,8 +596,11 @@ SETUP_HTML = """
 @app.route('/')
 def home():
     """Home page - redirects to appropriate page based on setup status."""
-    # If Gmail is connected, check what's needed
-    if os.path.exists(TOKEN_FILE):
+    # Check if user explicitly wants to see home page (via query param)
+    show_home = request.args.get('home', 'false').lower() == 'true'
+    
+    # If Gmail is connected and user didn't request home page, redirect
+    if os.path.exists(TOKEN_FILE) and not show_home:
         from src.storage.database import Database
         db = Database()
         
@@ -609,7 +621,7 @@ def home():
         # Everything set up, go directly to dashboard (preferences are optional)
         return redirect(url_for('dashboard'))
     
-    # No Gmail connected - show home page with provider selection
+    # Show home page (either no Gmail connected, or user requested it)
     gmail_connected = os.path.exists(TOKEN_FILE)
     return render_template_string(HOME_HTML, 
                                  gmail_connected=gmail_connected)
@@ -905,6 +917,43 @@ DASHBOARD_HTML = """
             }
         }
         
+        function scrollToFeedback() {
+            // First show the review panel
+            const panel = document.getElementById('review-panel');
+            if (panel) {
+                panel.style.display = 'block';
+                // Scroll to first unmarked email
+                const unmarkedEmails = panel.querySelectorAll('.email-item-review:not([data-feedback])');
+                if (unmarkedEmails.length > 0) {
+                    // Find emails with scores in ambiguous range (0.4-0.6) for better learning
+                    let targetEmail = null;
+                    for (let email of unmarkedEmails) {
+                        const scoreText = email.querySelector('[data-score]');
+                        if (scoreText) {
+                            const score = parseFloat(scoreText.textContent.replace('Score: ', ''));
+                            if (score >= 0.4 && score <= 0.6) {
+                                targetEmail = email;
+                                break;
+                            }
+                        }
+                    }
+                    // If no ambiguous emails, use first unmarked
+                    if (!targetEmail && unmarkedEmails.length > 0) {
+                        targetEmail = unmarkedEmails[0];
+                    }
+                    if (targetEmail) {
+                        targetEmail.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // Highlight it briefly
+                        targetEmail.style.boxShadow = '0 0 20px rgba(245, 158, 11, 0.6)';
+                        setTimeout(() => {
+                            targetEmail.style.boxShadow = '';
+                        }, 2000);
+                    }
+                }
+                panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+        
         // Ensure panel starts hidden on page load
         document.addEventListener('DOMContentLoaded', function() {
             const panel = document.getElementById('review-panel');
@@ -919,7 +968,14 @@ DASHBOARD_HTML = """
         <div class="header">
             <h1>📬 Daily Email Brief</h1>
             <p class="subtitle">Your AI-powered email assistant is ready!</p>
-            <div class="success-badge">✓ Gmail Connected</div>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-top: 15px;">
+                <div class="success-badge">✓ Gmail Connected</div>
+                <form method="POST" action="/setup/reset-credentials" style="display: inline; margin: 0;" onsubmit="return confirm('Are you sure you want to unlink Gmail? This will reset your connection and you\\'ll need to reconnect.');">
+                    <button type="submit" style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(220, 38, 38, 0.4)';" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 8px rgba(220, 38, 38, 0.3)';">
+                        🔄 Unlink Gmail
+                    </button>
+                </form>
+            </div>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -949,6 +1005,14 @@ DASHBOARD_HTML = """
                 <form method="POST" action="/dashboard/generate-brief" style="display: inline;">
                     <button type="submit" class="btn">📊 Generate Brief</button>
                 </form>
+                <button onclick="scrollToFeedback()" class="btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                    💬 Smart Feedback
+                </button>
+                <form method="POST" action="/dashboard/reset-training" style="display: inline;" onsubmit="return confirm('Are you sure you want to reset training? This will clear all your feedback and you\'ll need to go through onboarding again.');">
+                    <button type="submit" class="btn" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%);">
+                        🔄 Reset Training
+                    </button>
+                </form>
             </div>
             
             <div class="info-box">
@@ -959,69 +1023,102 @@ DASHBOARD_HTML = """
 
         {% if brief_text %}
         <div class="section">
-            <h2>📬 Your Daily Email Brief</h2>
+            <h2 style="color: #1e3c72; margin-bottom: 25px;">📬 Your Daily Email Brief</h2>
             
             <!-- Confidence & Statistics Panel -->
             <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); padding: 25px; border-radius: 12px; margin-bottom: 25px; border: 2px solid #3b82f6;">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; text-align: center;">
+                <!-- Top Stats Row -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; text-align: center; margin-bottom: 25px;">
                     <div>
-                        <div style="font-size: 32px; font-weight: 700; color: #1e3c72;">{{ brief_stats.total_emails }}</div>
-                        <div style="color: #64748b; font-size: 14px; margin-top: 5px;">Total Emails</div>
+                        <div style="font-size: 36px; font-weight: 700; color: #1e3c72;">{{ brief_stats.total_emails }}</div>
+                        <div style="color: #64748b; font-size: 13px; margin-top: 5px; font-weight: 600;">Total Emails</div>
                     </div>
                     <div>
-                        <div style="font-size: 32px; font-weight: 700; color: #10b981;">{{ brief_stats.important_count }}</div>
-                        <div style="color: #64748b; font-size: 14px; margin-top: 5px;">Important Selected</div>
+                        <div style="font-size: 36px; font-weight: 700; color: #dc2626;">{{ brief_stats.critical_count }}</div>
+                        <div style="color: #64748b; font-size: 13px; margin-top: 5px; font-weight: 600;">🔴 Critical</div>
                     </div>
                     <div>
-                        <div style="font-size: 32px; font-weight: 700; color: #94a3b8;">{{ brief_stats.filtered_count }}</div>
-                        <div style="color: #64748b; font-size: 14px; margin-top: 5px;">Filtered Out</div>
+                        <div style="font-size: 36px; font-weight: 700; color: #10b981;">{{ brief_stats.important_count }}</div>
+                        <div style="color: #64748b; font-size: 13px; margin-top: 5px; font-weight: 600;">Important</div>
                     </div>
                     <div>
-                        <div style="font-size: 32px; font-weight: 700; color: #f5a623;">{{ "%.1f"|format(brief_stats.avg_score * 100) }}%</div>
-                        <div style="color: #64748b; font-size: 14px; margin-top: 5px;">Avg Importance</div>
+                        <div style="font-size: 36px; font-weight: 700; color: #94a3b8;">{{ brief_stats.filtered_count }}</div>
+                        <div style="color: #64748b; font-size: 13px; margin-top: 5px; font-weight: 600;">Filtered Out</div>
                     </div>
                 </div>
+                
+                <!-- Category Breakdown - Prominent Display -->
+                {% if brief_stats.category_breakdown %}
+                <div style="background: white; padding: 20px; border-radius: 12px; margin-top: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <h3 style="color: #1e3c72; font-size: 18px; margin-bottom: 20px; text-align: center; font-weight: 700;">📊 Breakdown: {{ brief_stats.important_count }} Important Emails</h3>
+                    <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
+                        {% for category, count in brief_stats.category_breakdown.items()|sort(attribute='1', reverse=True) %}
+                        <div style="background: {% if category == 'Security Alerts' %}#fee2e2{% elif category == 'Work/Jobs' %}#fef3c7{% elif category == 'Financial' %}#dbeafe{% elif category == 'Healthcare' %}#d1fae5{% elif category == 'Promotions' %}#f3f4f6{% elif category == 'Newsletters' %}#f1f5f9{% else %}#f8fafc{% endif %}; 
+                            padding: 15px 24px; border-radius: 10px; border-left: 5px solid {% if category == 'Security Alerts' %}#ef4444{% elif category == 'Work/Jobs' %}#f59e0b{% elif category == 'Financial' %}#3b82f6{% elif category == 'Healthcare' %}#10b981{% elif category == 'Promotions' %}#94a3b8{% elif category == 'Newsletters' %}#64748b{% else %}#64748b{% endif %};
+                            box-shadow: 0 2px 4px rgba(0,0,0,0.1); min-width: 140px;">
+                            <div style="font-size: 28px; font-weight: 700; color: #1e3c72; text-align: center;">{{ count }}</div>
+                            <div style="color: #64748b; font-size: 13px; margin-top: 5px; text-align: center; font-weight: 600;">{{ category }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if brief_stats.critical_count > 0 %}
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid #e2e8f0; text-align: center;">
+                        <span style="background: #fee2e2; color: #991b1b; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 600;">
+                            🔴 {{ brief_stats.critical_count }} Critical emails need immediate attention
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
                 <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #bfdbfe;">
                     <p style="color: #1e40af; font-size: 15px; line-height: 1.6; margin-bottom: 15px;">
-                        <strong>✓ Quality Check:</strong> We reviewed all {{ brief_stats.total_emails }} emails and selected the top {{ brief_stats.important_count }} 
-                        based on your preferences. These emails have an average importance score of {{ "%.1f"|format(brief_stats.avg_score * 100) }}% 
-                        (range: {{ "%.1f"|format(brief_stats.low_score * 100) }}% - {{ "%.1f"|format(brief_stats.top_score * 100) }}%).
+                        <strong>✓ Quality Check:</strong> We reviewed all {{ brief_stats.total_emails }} emails and selected {{ brief_stats.important_count }} important emails 
+                        ({{ brief_stats.critical_count }} critical) based on your preferences (threshold: {{ "%.1f"|format(brief_stats.threshold * 100) }}%). 
+                        Filtered out {{ brief_stats.filtered_count }} low-priority emails to save you time.
                     </p>
                     
-                    <!-- Sender Categories Summary -->
+                    <!-- Sender Categories Summary - Collapsible -->
                     {% if brief_stats.sender_categories %}
                     <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 15px;">
-                        <h3 style="color: #1e3c72; font-size: 18px; margin-bottom: 15px;">📊 Email Breakdown by Category</h3>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
-                            {% for category, data in brief_stats.sender_categories.items() %}
-                            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid {% if category == 'Security Alerts' %}#ef4444{% elif category == 'Work/Jobs' %}#f5a623{% elif category == 'Financial' %}#3b82f6{% elif category == 'Healthcare' %}#10b981{% elif category == 'Promotions' %}#94a3b8{% else %}#64748b{% endif %};">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                    <strong style="color: #1e3c72; font-size: 14px;">{{ category }}</strong>
-                                    <span style="background: {% if data.in_brief > 0 %}#10b981{% else %}#94a3b8{% endif %}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
-                                        {{ data.count }} total{% if data.in_brief > 0 %} | {{ data.in_brief }} in brief{% endif %}
-                                    </span>
+                        <details style="cursor: pointer;">
+                            <summary style="color: #1e3c72; font-size: 18px; font-weight: 600; margin-bottom: 15px; list-style: none; cursor: pointer;">
+                                📊 Email Breakdown by Category <span style="font-size: 14px; color: #64748b; font-weight: normal;">(click to expand)</span>
+                            </summary>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
+                                {% for category, data in brief_stats.sender_categories.items() %}
+                                <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid {% if category == 'Security Alerts' %}#ef4444{% elif category == 'Work/Jobs' %}#f5a623{% elif category == 'Financial' %}#3b82f6{% elif category == 'Healthcare' %}#10b981{% elif category == 'Promotions' %}#94a3b8{% else %}#64748b{% endif %};">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <strong style="color: #1e3c72; font-size: 14px;">{{ category }}</strong>
+                                        <span style="background: {% if data.in_brief > 0 %}#10b981{% else %}#94a3b8{% endif %}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                                            {{ data.count }} total{% if data.in_brief > 0 %} | {{ data.in_brief }} in brief{% endif %}
+                                        </span>
+                                    </div>
+                                    <div style="color: #64748b; font-size: 12px; margin-top: 5px;">
+                                        {% for sender in data.senders[:3] %}
+                                        <div style="margin: 3px 0;">• {{ sender[:40] }}{% if sender|length > 40 %}...{% endif %}</div>
+                                        {% endfor %}
+                                        {% if data.sender_count > 3 %}
+                                        <div style="color: #94a3b8; font-style: italic;">+ {{ data.sender_count - 3 }} more</div>
+                                        {% endif %}
+                                    </div>
                                 </div>
-                                <div style="color: #64748b; font-size: 12px; margin-top: 5px;">
-                                    {% for sender in data.senders[:3] %}
-                                    <div style="margin: 3px 0;">• {{ sender[:40] }}{% if sender|length > 40 %}...{% endif %}</div>
-                                    {% endfor %}
-                                    {% if data.sender_count > 3 %}
-                                    <div style="color: #94a3b8; font-style: italic;">+ {{ data.sender_count - 3 }} more</div>
-                                    {% endif %}
-                                </div>
+                                {% endfor %}
                             </div>
-                            {% endfor %}
-                        </div>
-                        <p style="color: #64748b; font-size: 13px; margin-top: 15px; font-style: italic;">
-                            💡 This breakdown helps you see what types of emails you received. Categories with emails "in brief" are highlighted in green.
-                        </p>
+                            <p style="color: #64748b; font-size: 13px; margin-top: 15px; font-style: italic;">
+                                💡 This breakdown helps you see what types of emails you received. Categories with emails "in brief" are highlighted in green.
+                            </p>
+                        </details>
                     </div>
                     {% endif %}
                 </div>
             </div>
             
-            <div class="brief-container">
-                {{ brief_text|safe }}
+            <!-- Brief Content -->
+            <div style="margin-top: 30px;">
+                <h3 style="color: #1e3c72; font-size: 20px; margin-bottom: 20px; font-weight: 600;">📋 Summary of Important Emails</h3>
+                <div class="brief-container">
+                    {{ brief_text|safe }}
+                </div>
             </div>
             
             <!-- Review Section -->
@@ -1040,23 +1137,26 @@ DASHBOARD_HTML = """
                     
                     <div style="max-height: 600px; overflow-y: auto; overflow-x: hidden;">
                         {% for email in all_emails %}
-                        <div class="email-item-review {% if email.importance_score > 0.3 %}brief-included{% endif %}" 
-                             style="background: {% if email.importance_score > 0.3 %}#f0fdf4{% else %}#ffffff{% endif %}; 
+                        <div class="email-item-review {% if email.importance_score > brief_stats.threshold %}brief-included{% endif %}" 
+                             style="background: {% if email.importance_score > brief_stats.threshold %}#f0fdf4{% else %}#ffffff{% endif %}; 
                                     padding: 15px; margin: 10px 0; border-radius: 8px; 
-                                    border-left: 4px solid {% if email.importance_score > 0.7 %}#f5a623{% elif email.importance_score > 0.4 %}#3b82f6{% else %}#94a3b8{% endif %};
-                                    {% if email.importance_score > 0.3 %}border: 2px solid #10b981;{% endif %}">
+                                    border-left: 4px solid {% if email.importance_score > 0.7 %}#dc2626{% elif email.importance_score > 0.5 %}#f59e0b{% elif email.importance_score > 0.4 %}#3b82f6{% else %}#94a3b8{% endif %};
+                                    {% if email.importance_score > brief_stats.threshold %}border: 2px solid #10b981;{% endif %}">
                             <div style="display: flex; justify-content: space-between; align-items: start;">
                                 <div style="flex: 1;">
-                                    {% if email.importance_score > 0.3 %}
+                                    {% if email.importance_score > brief_stats.threshold %}
                                     <span style="background: #10b981; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-right: 10px;">IN BRIEF</span>
+                                    {% endif %}
+                                    {% if email.importance_score > 0.7 %}
+                                    <span style="background: #dc2626; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-right: 10px; margin-top: 5px; display: inline-block;">🔴 CRITICAL</span>
                                     {% endif %}
                                     <strong style="color: #1e3c72;">{{ email.subject }}</strong><br>
                                     <span style="color: #64748b; font-size: 14px;">From: {{ email.sender }}</span><br>
                                     <span style="color: #94a3b8; font-size: 12px;">{{ email.date }}</span>
                                 </div>
                                 <div style="margin-left: 15px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-                                    <span style="background: {% if email.importance_score > 0.7 %}#fef3c7{% elif email.importance_score > 0.4 %}#dbeafe{% else %}#f1f5f9{% endif %}; 
-                                        color: {% if email.importance_score > 0.7 %}#92400e{% elif email.importance_score > 0.4 %}#1e40af{% else %}#475569{% endif %}; 
+                                    <span data-score="{{ email.importance_score }}" style="background: {% if email.importance_score > 0.7 %}#fee2e2{% elif email.importance_score > 0.5 %}#fef3c7{% elif email.importance_score > 0.4 %}#dbeafe{% else %}#f1f5f9{% endif %}; 
+                                        color: {% if email.importance_score > 0.7 %}#991b1b{% elif email.importance_score > 0.5 %}#92400e{% elif email.importance_score > 0.4 %}#1e40af{% else %}#475569{% endif %}; 
                                         padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">
                                         Score: {{ "%.2f"|format(email.importance_score) }}
                                     </span>
@@ -1102,11 +1202,55 @@ DASHBOARD_HTML = """
         
         {% if has_emails %}
         <div class="section">
-            <h2>📧 Your Emails ({{ total_emails }} total)</h2>
-            <p>Mark emails as important or not important to help the AI learn your preferences. This improves future briefs!</p>
-            <div style="max-height: 600px; overflow-y: auto; overflow-x: hidden; margin-top: 20px;">
-                {% for email in emails %}
-                <div style="background: #f8fafc; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 3px solid {% if email.importance_score > 0.7 %}#f5a623{% elif email.importance_score > 0.4 %}#3b82f6{% else %}#94a3b8{% endif %};">
+            <h2>📧 Your Emails by Category</h2>
+            <p>Emails organized by category. Mark emails to help the AI learn your preferences!</p>
+            
+            {% if brief_stats.sender_categories %}
+            {% for category, data in brief_stats.sender_categories.items() %}
+            <div style="margin: 30px 0; background: #f8fafc; padding: 20px; border-radius: 12px; border-left: 4px solid {% if category == 'Security Alerts' %}#ef4444{% elif category == 'Work/Jobs' %}#f59e0b{% elif category == 'Financial' %}#3b82f6{% elif category == 'Healthcare' %}#10b981{% else %}#64748b{% endif %};">
+                <h3 style="color: #1e3c72; margin-bottom: 15px;">
+                    {{ category }} 
+                    <span style="font-size: 14px; color: #64748b; font-weight: normal;">({{ data.count }} emails{% if data.in_brief > 0 %}, {{ data.in_brief }} important{% endif %})</span>
+                </h3>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h4 style="color: #10b981; font-size: 14px; margin-bottom: 10px;">✓ Important ({{ data.in_brief }})</h4>
+                        {% for email in all_emails %}
+                        {% set email_category = categorize_sender(email.sender, email.subject) %}
+                        {% if email_category == category and email.importance_score > brief_stats.threshold %}
+                        <div style="background: white; padding: 12px; margin: 8px 0; border-radius: 8px; border-left: 3px solid #10b981;">
+                            <strong style="color: #1e3c72; font-size: 13px;">{{ email.subject[:50] }}{% if email.subject|length > 50 %}...{% endif %}</strong><br>
+                            <span style="color: #64748b; font-size: 12px;">{{ email.sender[:40] }}{% if email.sender|length > 40 %}...{% endif %}</span>
+                            <span style="float: right; background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">{{ "%.2f"|format(email.importance_score) }}</span>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    <div>
+                        <h4 style="color: #94a3b8; font-size: 14px; margin-bottom: 10px;">✗ Filtered Out ({{ data.count - data.in_brief }})</h4>
+                        {% for email in all_emails %}
+                        {% set email_category = categorize_sender(email.sender, email.subject) %}
+                        {% if email_category == category and email.importance_score <= brief_stats.threshold %}
+                        <div style="background: white; padding: 12px; margin: 8px 0; border-radius: 8px; border-left: 3px solid #94a3b8; opacity: 0.7;">
+                            <strong style="color: #64748b; font-size: 13px;">{{ email.subject[:50] }}{% if email.subject|length > 50 %}...{% endif %}</strong><br>
+                            <span style="color: #94a3b8; font-size: 12px;">{{ email.sender[:40] }}{% if email.sender|length > 40 %}...{% endif %}</span>
+                            <span style="float: right; background: #94a3b8; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">{{ "%.2f"|format(email.importance_score) }}</span>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+            
+            <div style="margin-top: 30px;">
+                <h3 style="color: #1e3c72; margin-bottom: 15px;">📋 All Emails ({{ total_emails }} total)</h3>
+                <p style="color: #64748b; margin-bottom: 15px;">Mark emails as important or not important to help the AI learn your preferences. This improves future briefs!</p>
+                <div style="max-height: 600px; overflow-y: auto; overflow-x: hidden; margin-top: 20px;">
+                    {% for email in emails %}
+                <div style="background: #f8fafc; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 3px solid {% if email.importance_score > 0.7 %}#dc2626{% elif email.importance_score > 0.5 %}#f59e0b{% elif email.importance_score > 0.4 %}#3b82f6{% else %}#94a3b8{% endif %};">
                     <div style="display: flex; justify-content: space-between; align-items: start;">
                         <div style="flex: 1;">
                             <strong style="color: #1e3c72;">{{ email.subject }}</strong><br>
@@ -1114,10 +1258,11 @@ DASHBOARD_HTML = """
                             <span style="color: #94a3b8; font-size: 12px;">{{ email.date }}</span>
                         </div>
                         <div style="margin-left: 15px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-                            <span style="background: {% if email.importance_score > 0.7 %}#fef3c7{% elif email.importance_score > 0.4 %}#dbeafe{% else %}#f1f5f9{% endif %}; 
-                                color: {% if email.importance_score > 0.7 %}#92400e{% elif email.importance_score > 0.4 %}#1e40af{% else %}#475569{% endif %}; 
+                            <span style="background: {% if email.importance_score > 0.7 %}#fee2e2{% elif email.importance_score > 0.5 %}#fef3c7{% elif email.importance_score > 0.4 %}#dbeafe{% else %}#f1f5f9{% endif %}; 
+                                color: {% if email.importance_score > 0.7 %}#991b1b{% elif email.importance_score > 0.5 %}#92400e{% elif email.importance_score > 0.4 %}#1e40af{% else %}#475569{% endif %}; 
                                 padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">
                                 Score: {{ "%.2f"|format(email.importance_score) }}
+                                {% if email.importance_score > 0.7 %}<span style="margin-left: 5px;">🔴</span>{% endif %}
                             </span>
                             <div style="display: flex; gap: 5px;">
                                 {% if email.has_feedback %}
@@ -1165,7 +1310,7 @@ DASHBOARD_HTML = """
 
 
         <div style="text-align: center; margin-top: 40px;">
-            <a href="/" class="btn btn-secondary">← Back to Home</a>
+            <a href="/?home=true" class="btn btn-secondary">← Back to Home</a>
             <a href="/setup/gmail" class="btn btn-secondary">⚙️ Settings</a>
         </div>
     </div>
@@ -1985,17 +2130,9 @@ def onboarding_complete():
         
         print(f"[ONBOARDING] Saved {feedback_count} feedback entries")
         
-        # Re-score all emails with new feedback
-        from src.ai.scorer import ImportanceScorer
-        from config.settings import EMAIL_FETCH_HOURS
-        
-        scorer = ImportanceScorer(db)
-        emails = db.get_recent_emails(hours=EMAIL_FETCH_HOURS)
-        
-        print(f"[ONBOARDING] Re-scoring {len(emails)} emails with learned preferences")
-        for email in emails:
-            score = scorer.score_email(email)
-            db.update_importance_score(email['id'], score)
+        # Don't re-score all emails here - it's too slow and expensive
+        # Re-scoring will happen lazily when user clicks "Score Importance" or when dashboard loads
+        # This makes the redirect much faster
         
         print(f"[ONBOARDING] Training complete! Saved {feedback_count} feedback entries. Redirecting to dashboard.")
         flash(f'✅ Training complete! We\'ve learned from {feedback_count} examples. Your personalized brief is ready!', 'success')
@@ -2050,14 +2187,11 @@ def dashboard():
     db = Database()
     emails = db.get_recent_emails(hours=EMAIL_FETCH_HOURS)
     
-    # Re-score emails to ensure they're up to date with latest feedback
-    scorer = ImportanceScorer(db)
-    for email in emails:
-        score = scorer.score_email(email)
-        db.update_importance_score(email['id'], score)
+    # Don't re-score all emails on every dashboard load - it's too slow!
+    # Only re-score if explicitly requested via "Score Importance" button
+    # This makes dashboard loads much faster
     
-    # Re-fetch to get updated scores
-    emails = db.get_recent_emails(hours=EMAIL_FETCH_HOURS)
+    # Sort by existing scores
     emails.sort(key=lambda x: x.get('importance_score', 0), reverse=True)
     
     # Get feedback for emails to show which ones have been marked
@@ -2086,8 +2220,11 @@ def dashboard():
         'avg_score': 0,
         'top_score': 0,
         'low_score': 0,
-        'sender_categories': {}
-    }
+            'threshold': 0.65,  # Default threshold (more aggressive)
+            'critical_count': 0,
+            'category_breakdown': {},
+            'sender_categories': {}
+        }
     
     # Categorize senders
     def categorize_sender(sender, subject):
@@ -2150,16 +2287,60 @@ def dashboard():
             sender_categories[category]['count'] += 1
             sender_categories[category]['senders'].add(email.get('sender', 'Unknown'))
         
-        # Filter to show only emails with score > 0.3 (learned threshold)
-        important_emails = [e for e in emails if e.get('importance_score', 0) > 0.3]
+        # Calculate adaptive threshold based on feedback distribution
+        def calculate_adaptive_threshold(emails, feedback_map):
+            """Calculate threshold based on feedback patterns."""
+            # Get feedback scores
+            feedback_scores = []
+            for email in emails:
+                if email['id'] in feedback_map:
+                    feedback_scores.append(email.get('importance_score', 0))
+            
+            if len(feedback_scores) >= 10:
+                # Use 75th percentile of feedback scores as threshold (more aggressive)
+                sorted_scores = sorted(feedback_scores)
+                percentile_75 = sorted_scores[int(len(sorted_scores) * 0.75)]
+                # Ensure threshold is at least 0.65 for aggressive filtering
+                threshold = max(0.65, percentile_75)
+            else:
+                # Not enough feedback - use percentile-based approach
+                scores = [e.get('importance_score', 0) for e in emails]
+                if scores:
+                    sorted_scores = sorted(scores, reverse=True)
+                    # Top 15% or minimum 0.65, whichever is higher (more aggressive)
+                    top_15_percent = sorted_scores[max(1, len(sorted_scores) // 7)]
+                    threshold = max(0.65, top_15_percent)
+                else:
+                    threshold = 0.65
+            
+            return threshold
+        
+        # Calculate adaptive threshold - make it more aggressive
+        threshold = calculate_adaptive_threshold(emails, feedback_map)
+        # Ensure threshold is at least 0.65 for better filtering
+        threshold = max(0.65, threshold)
+        brief_stats['threshold'] = threshold
+        
+        # Filter to show only emails above adaptive threshold
+        important_emails = [e for e in emails if e.get('importance_score', 0) > threshold]
         brief_stats['important_count'] = len(important_emails)
         brief_stats['filtered_count'] = len(emails) - len(important_emails)
         
+        # Count critical emails (>0.7)
+        critical_emails = [e for e in emails if e.get('importance_score', 0) > 0.7]
+        brief_stats['critical_count'] = len(critical_emails)
+        
         # Count how many from each category are in brief
+        category_breakdown = {}
         for email in important_emails:
             category = categorize_sender(email.get('sender', ''), email.get('subject', ''))
+            if category not in category_breakdown:
+                category_breakdown[category] = 0
+            category_breakdown[category] += 1
             if category in sender_categories:
                 sender_categories[category]['in_brief'] += 1
+        
+        brief_stats['category_breakdown'] = category_breakdown
         
         # Convert sets to lists for template
         for cat in sender_categories:
@@ -2184,7 +2365,8 @@ def dashboard():
                                  total_emails=len(emails),
                                  has_emails=len(emails) > 0,
                                  brief_stats=brief_stats,
-                                 all_emails=emails)  # Pass all emails for review
+                                 all_emails=emails,  # Pass all emails for review
+                                 categorize_sender=categorize_sender)  # Pass function to template
 
 
 @app.route('/dashboard/fetch', methods=['POST'])
@@ -2236,11 +2418,18 @@ def dashboard_score():
         
         emails = db.get_recent_emails(hours=EMAIL_FETCH_HOURS)
         
+        # Show progress message
+        flash(f'⏳ Scoring {len(emails)} emails... This may take a minute. Please wait...', 'info')
+        
         scored_count = 0
         for email in emails:
-            score = scorer.score_email(email)
-            db.update_importance_score(email['id'], score)
-            scored_count += 1
+            try:
+                score = scorer.score_email(email)
+                db.update_importance_score(email['id'], score)
+                scored_count += 1
+            except Exception as e:
+                print(f"[SCORE ERROR] Error scoring email {email.get('id', 'unknown')}: {e}")
+                continue  # Skip this email and continue
         
         flash(f'✅ Scored {scored_count} emails successfully!', 'success')
     except Exception as e:
@@ -2258,6 +2447,36 @@ def dashboard_generate_brief():
     
     # Just redirect to dashboard - brief will be generated on page load
     return redirect(url_for('dashboard'))
+
+
+@app.route('/dashboard/reset-training', methods=['POST'])
+def dashboard_reset_training():
+    """Reset training data to allow re-onboarding."""
+    if not os.path.exists(TOKEN_FILE):
+        flash('Please connect your Gmail account first', 'error')
+        return redirect(url_for('onboarding'))
+    
+    try:
+        from src.storage.database import Database
+        import sqlite3
+        
+        db = Database()
+        conn = sqlite3.connect(db.db_path)
+        cursor = conn.cursor()
+        
+        # Clear all feedback
+        cursor.execute('DELETE FROM feedback')
+        cursor.execute('DELETE FROM feedback_enhanced')
+        cursor.execute('DELETE FROM sender_patterns')
+        
+        conn.commit()
+        conn.close()
+        
+        flash('✅ Training data reset successfully! You can now go through onboarding again.', 'success')
+    except Exception as e:
+        flash(f'Error resetting training: {str(e)}', 'error')
+    
+    return redirect(url_for('onboarding'))
 
 
 @app.route('/dashboard/feedback', methods=['POST'])
@@ -2455,7 +2674,7 @@ def save_credentials():
 
 @app.route('/setup/reset-credentials', methods=['POST'])
 def reset_credentials():
-    """Reset/clear saved credentials."""
+    """Reset/clear saved credentials and unlink Gmail."""
     try:
         # Delete credentials file if it exists
         if os.path.exists(CREDENTIALS_FILE):
@@ -2463,12 +2682,12 @@ def reset_credentials():
         # Also delete token file to force re-authentication
         if os.path.exists(TOKEN_FILE):
             os.remove(TOKEN_FILE)
-        flash('✅ Credentials reset successfully! You can now enter new credentials.', 'success')
+        flash('✅ Gmail account unlinked successfully! You can now reconnect or set up a new account.', 'success')
     except Exception as e:
-        flash(f'Error resetting credentials: {str(e)}', 'error')
+        flash(f'Error unlinking account: {str(e)}', 'error')
     
-    # Redirect to onboarding (which will show setup if no credentials)
-    return redirect(url_for('onboarding'))
+    # Redirect to home page (which will show setup options)
+    return redirect(url_for('home'))
 
 
 @app.route('/oauth/authorize')
