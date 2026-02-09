@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from config.settings import OPENAI_API_KEY, EMBEDDING_MODEL
 from src.storage.database import Database
+from src.utils.categories import categorize_sender
 
 
 class ImportanceScorer:
@@ -42,14 +43,20 @@ class ImportanceScorer:
         Factors:
         1. Sender reputation (from feedback history)
         2. Similarity to previously marked important emails
-        3. Subject keywords (basic heuristics)
+        3. Category reputation (e.g. job responses important, promotions not)
+        4. Subject keywords (basic heuristics)
         """
         score = 0.0
         
-        # Factor 1: Sender reputation (0-0.4 weight)
+        # Factor 1: Sender reputation (0-0.35 weight)
         sender = email.get('sender', '')
         sender_reputation = self.db.get_sender_reputation(sender)
-        score += sender_reputation * 0.4
+        score += sender_reputation * 0.35
+        
+        # Category reputation (auto-rank/group: e.g. mark one job email important -> more weight for Work/Jobs)
+        category = categorize_sender(email.get('sender', ''), email.get('subject', ''))
+        category_reputation = self.db.get_category_reputation(category)
+        score += category_reputation * 0.2
         
         # Factor 2: Similarity to important emails (0-0.4 weight)
         email_text = f"{email.get('subject', '')} {email.get('snippet', '')}"
@@ -67,14 +74,14 @@ class ImportanceScorer:
                     similarity = self.cosine_similarity(embedding, imp_embedding)
                     max_similarity = max(max_similarity, similarity)
                 
-                score += max_similarity * 0.4
+                score += max_similarity * 0.35
             else:
                 # No feedback yet, use neutral score
-                score += 0.2
+                score += 0.175
         else:
-            score += 0.2
+            score += 0.175
         
-        # Factor 3: Basic keyword heuristics (0-0.2 weight)
+        # Factor 4: Basic keyword heuristics (0-0.1 weight)
         subject_lower = email.get('subject', '').lower()
         important_keywords = ['urgent', 'important', 'action required', 'deadline', 'meeting']
         not_important_keywords = ['unsubscribe', 'newsletter', 'promotion', 'spam']
@@ -90,7 +97,7 @@ class ImportanceScorer:
                 keyword_score -= 0.1
                 break
         
-        score += max(0, min(0.2, keyword_score + 0.1))
+        score += max(0, min(0.1, keyword_score + 0.05))
         
         # Normalize to 0-1 range
         score = max(0.0, min(1.0, score))

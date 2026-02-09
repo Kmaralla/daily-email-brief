@@ -124,6 +124,16 @@ class Database:
             )
         ''')
         
+        # Category patterns (learn from feedback: e.g. "Promotions" often not important)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS category_patterns (
+                category TEXT PRIMARY KEY,
+                important_count INTEGER DEFAULT 0,
+                not_important_count INTEGER DEFAULT 0,
+                last_updated TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
         conn.commit()
         conn.close()
     
@@ -228,6 +238,57 @@ class Database:
         
         conn.commit()
         conn.close()
+    
+    def update_category_feedback(self, category: str, is_important: bool):
+        """Update category pattern from feedback (e.g. mark Promotions as not important)."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT OR REPLACE INTO category_patterns
+            (category, important_count, not_important_count, last_updated)
+            VALUES (
+                ?,
+                COALESCE((SELECT important_count FROM category_patterns WHERE category = ?), 0) + ?,
+                COALESCE((SELECT not_important_count FROM category_patterns WHERE category = ?), 0) + ?,
+                CURRENT_TIMESTAMP
+            )
+        ''', (category, category, 1 if is_important else 0, category, 0 if is_important else 1))
+        conn.commit()
+        conn.close()
+    
+    def get_category_reputation(self, category: str) -> float:
+        """Get category reputation (0-1) from feedback history."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT important_count, not_important_count FROM category_patterns WHERE category = ?
+        ''', (category,))
+        result = cursor.fetchone()
+        conn.close()
+        if not result:
+            return 0.5
+        important, not_important = result
+        total = important + not_important
+        if total == 0:
+            return 0.5
+        return important / total
+    
+    def get_email_by_id(self, email_id: str) -> Optional[Dict]:
+        """Get a single email by ID."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, subject, sender, date, snippet, body, importance_score
+            FROM emails WHERE id = ?
+        ''', (email_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        return {
+            'id': row[0], 'subject': row[1], 'sender': row[2], 'date': row[3],
+            'snippet': row[4], 'body': row[5], 'importance_score': row[6]
+        }
     
     def update_importance_score(self, email_id: str, score: float):
         """Update importance score for an email."""

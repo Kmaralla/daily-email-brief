@@ -843,6 +843,13 @@ DASHBOARD_HTML = """
             font-size: 14px;
             color: #1e3c72;
         }
+        .brief-card-highlight {
+            animation: brief-highlight 2s ease;
+        }
+        @keyframes brief-highlight {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+        }
         .brief-header {
             text-align: center;
             padding: 20px;
@@ -1086,7 +1093,7 @@ DASHBOARD_HTML = """
                             </summary>
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
                                 {% for category, data in brief_stats.sender_categories.items() %}
-                                <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid {% if category == 'Security Alerts' %}#ef4444{% elif category == 'Work/Jobs' %}#f5a623{% elif category == 'Financial' %}#3b82f6{% elif category == 'Healthcare' %}#10b981{% elif category == 'Promotions' %}#94a3b8{% else %}#64748b{% endif %};">
+                                <div class="category-breakdown-card" style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid {% if category == 'Security Alerts' %}#ef4444{% elif category == 'Work/Jobs' %}#f5a623{% elif category == 'Financial' %}#3b82f6{% elif category == 'Healthcare' %}#10b981{% elif category == 'Promotions' %}#94a3b8{% else %}#64748b{% endif %}; {% if data.first_email_id %}cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;{% endif %}" {% if data.first_email_id %}onclick="var el = document.getElementById('email-{{ data.first_email_id }}'); if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('brief-card-highlight'); setTimeout(function(){ el.classList.remove('brief-card-highlight'); }, 2000); }"{% endif %}>
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                                         <strong style="color: #1e3c72; font-size: 14px;">{{ category }}</strong>
                                         <span style="background: {% if data.in_brief > 0 %}#10b981{% else %}#94a3b8{% endif %}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
@@ -1101,6 +1108,9 @@ DASHBOARD_HTML = """
                                         <div style="color: #94a3b8; font-style: italic;">+ {{ data.sender_count - 3 }} more</div>
                                         {% endif %}
                                     </div>
+                                    {% if data.first_email_id %}
+                                    <div style="font-size: 11px; color: #3b82f6; margin-top: 8px;">↓ Click to jump to summary</div>
+                                    {% endif %}
                                 </div>
                                 {% endfor %}
                             </div>
@@ -1119,6 +1129,61 @@ DASHBOARD_HTML = """
                 <div class="brief-container">
                     {{ brief_text|safe }}
                 </div>
+                <!-- Navigable email cards: click category above to scroll here -->
+                {% if important_emails %}
+                <div style="margin-top: 24px;">
+                    <p style="color: #64748b; font-size: 14px; margin-bottom: 16px;">Jump to an email below or open in Gmail to reply.</p>
+                    {% for email in important_emails %}
+                    <div id="email-{{ email.id }}" class="brief-email-card" style="background: #f8fafc; border-left: 4px solid #3b82f6; padding: 18px; margin: 14px 0; border-radius: 8px; transition: box-shadow 0.2s;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+                            <div style="flex: 1; min-width: 0;">
+                                <strong style="color: #1e3c72; font-size: 15px;">{{ email.subject[:80] }}{% if email.subject|length > 80 %}...{% endif %}</strong><br>
+                                <span style="color: #64748b; font-size: 13px;">From: {{ email.sender }}</span><br>
+                                <span style="color: #94a3b8; font-size: 12px;">{{ email.date }}</span>
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                                <a href="https://mail.google.com/mail/u/0/#inbox/{{ email.id }}" target="_blank" rel="noopener" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none;">Open in Gmail to reply</a>
+                                <button type="button" class="btn-view-full" data-email-id="{{ email.id }}" style="background: #e2e8f0; color: #475569; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; border: none; cursor: pointer;">View full email</button>
+                            </div>
+                        </div>
+                        <p class="brief-email-snippet" style="color: #64748b; font-size: 14px; margin-top: 10px;">{{ (email.snippet or '')[:200] }}{% if (email.snippet or '')|length > 200 %}...{% endif %}</p>
+                        <div class="brief-email-body" style="display: none; margin-top: 12px; padding: 12px; background: white; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 14px; color: #334155; line-height: 1.5;"></div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <script>
+                (function(){
+                    document.querySelectorAll('.btn-view-full').forEach(function(btn){
+                        btn.addEventListener('click', function(){
+                            var card = this.closest('.brief-email-card');
+                            var bodyEl = card.querySelector('.brief-email-body');
+                            if (bodyEl.style.display === 'block') {
+                                bodyEl.style.display = 'none';
+                                this.textContent = 'View full email';
+                                return;
+                            }
+                            if (bodyEl.dataset.loaded === '1') {
+                                bodyEl.style.display = 'block';
+                                this.textContent = 'Hide full email';
+                                return;
+                            }
+                            var id = this.getAttribute('data-email-id');
+                            this.textContent = 'Loading...';
+                            fetch('/api/email/' + encodeURIComponent(id)).then(function(r){ return r.json(); }).then(function(data){
+                                bodyEl.innerHTML = (data.body || data.snippet || 'No content').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                                bodyEl.dataset.loaded = '1';
+                                bodyEl.style.display = 'block';
+                                btn.textContent = 'Hide full email';
+                            }).catch(function(){
+                                bodyEl.innerHTML = 'Could not load email.';
+                                bodyEl.style.display = 'block';
+                                btn.textContent = 'Hide full email';
+                            }).finally(function(){ btn.textContent = bodyEl.style.display === 'block' ? 'Hide full email' : 'View full email'; });
+                        });
+                    });
+                })();
+                </script>
+                {% endif %}
             </div>
             
             <!-- Review Section -->
@@ -2213,6 +2278,7 @@ def dashboard():
     
     # Generate brief if we have emails - prioritize high-scoring emails
     brief_text = None
+    important_emails = []
     brief_stats = {
         'total_emails': len(emails),
         'important_count': 0,
@@ -2342,10 +2408,15 @@ def dashboard():
         
         brief_stats['category_breakdown'] = category_breakdown
         
-        # Convert sets to lists for template
+        # Convert sets to lists for template; add first_email_id per category for scroll-to-summary
         for cat in sender_categories:
             sender_categories[cat]['senders'] = list(sender_categories[cat]['senders'])[:5]  # Top 5 senders
             sender_categories[cat]['sender_count'] = len(sender_categories[cat]['senders'])
+            sender_categories[cat]['first_email_id'] = None
+        for email in important_emails:
+            cat = categorize_sender(email.get('sender', ''), email.get('subject', ''))
+            if cat in sender_categories and sender_categories[cat]['first_email_id'] is None:
+                sender_categories[cat]['first_email_id'] = email.get('id')
         
         brief_stats['sender_categories'] = sender_categories
         
@@ -2354,10 +2425,13 @@ def dashboard():
             brief_text = summarizer.generate_brief(important_emails, top_n=10)
         else:
             # If no high-scoring emails, show top ones anyway
+            important_emails = emails[:10]
             summarizer = BriefSummarizer()
-            brief_text = summarizer.generate_brief(emails[:10], top_n=10)
-            brief_stats['important_count'] = len(emails[:10])
-            brief_stats['filtered_count'] = len(emails) - len(emails[:10])
+            brief_text = summarizer.generate_brief(important_emails, top_n=10)
+            brief_stats['important_count'] = len(important_emails)
+            brief_stats['filtered_count'] = len(emails) - len(important_emails)
+    else:
+        important_emails = []
     
     return render_template_string(DASHBOARD_HTML, 
                                  emails=emails[:20],  # Show top 20
@@ -2366,6 +2440,7 @@ def dashboard():
                                  has_emails=len(emails) > 0,
                                  brief_stats=brief_stats,
                                  all_emails=emails,  # Pass all emails for review
+                                 important_emails=important_emails,
                                  categorize_sender=categorize_sender)  # Pass function to template
 
 
@@ -2500,15 +2575,22 @@ def dashboard_feedback():
     
     try:
         from src.storage.database import Database
+        from src.utils.categories import categorize_sender
         
         db = Database()
         db.save_feedback(email_id, is_important)
         
+        # Update category pattern so similar emails (e.g. same category) are auto-ranked
+        email = db.get_email_by_id(email_id)
+        if email:
+            category = categorize_sender(email.get('sender', ''), email.get('subject', ''))
+            db.update_category_feedback(category, is_important)
+        
         # Re-score this email with new feedback
         from src.ai.scorer import ImportanceScorer
         scorer = ImportanceScorer(db)
-        email = db.get_recent_emails(hours=168)  # Get from last week
-        for e in email:
+        emails_list = db.get_recent_emails(hours=168)  # Get from last week
+        for e in emails_list:
             if e['id'] == email_id:
                 score = scorer.score_email(e)
                 db.update_importance_score(email_id, score)
@@ -2698,13 +2780,11 @@ def oauth_authorize():
     # Prevent multiple simultaneous OAuth flows
     if _oauth_in_progress:
         flash('OAuth flow already in progress. Please wait...', 'error')
-        # Redirect to onboarding (which will show setup if no credentials)
-    return redirect(url_for('onboarding'))
+        return redirect(url_for('onboarding'))
     
     if not os.path.exists(CREDENTIALS_FILE):
         flash('Please set up credentials first', 'error')
-        # Redirect to onboarding (which will show setup if no credentials)
-    return redirect(url_for('onboarding'))
+        return redirect(url_for('onboarding'))
     
     try:
         _oauth_in_progress = True
@@ -2778,9 +2858,11 @@ def oauth_authorize():
         
         return redirect(authorization_url)
     except Exception as e:
+        _oauth_in_progress = False
+        import traceback
+        print(f"[OAUTH ERROR] {e}\n{traceback.format_exc()}", flush=True)
         flash(f'OAuth error: {str(e)}', 'error')
-        # Redirect to onboarding (which will show setup if no credentials)
-    return redirect(url_for('onboarding'))
+        return redirect(url_for('onboarding'))
 
 
 @app.route('/oauth/callback', methods=['GET', 'POST'])
@@ -3068,6 +3150,29 @@ def oauth_callback():
         </body>
         </html>
         """, error=error_display, error_details=error_msg), 400
+
+
+@app.route('/api/email/<email_id>')
+def api_email(email_id):
+    """Return a single email by ID (for lazy-loading full body)."""
+    if not os.path.exists(TOKEN_FILE):
+        return jsonify({'error': 'Not authenticated'}), 401
+    try:
+        from src.storage.database import Database
+        db = Database()
+        email = db.get_email_by_id(email_id)
+        if not email:
+            return jsonify({'error': 'Email not found'}), 404
+        return jsonify({
+            'id': email['id'],
+            'subject': email['subject'],
+            'sender': email['sender'],
+            'date': email['date'],
+            'snippet': email.get('snippet', ''),
+            'body': email.get('body', '') or email.get('snippet', '')
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/status')
