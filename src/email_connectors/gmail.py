@@ -7,6 +7,7 @@ from typing import List, Dict, Optional
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google.auth.exceptions import RefreshError
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -35,7 +36,16 @@ class GmailConnector:
         # If no valid credentials, get new ones
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
+                try:
+                    creds.refresh(Request())
+                except RefreshError:
+                    # Token expired or revoked (invalid_grant) - remove so user can reconnect
+                    if os.path.exists(GMAIL_TOKEN_FILE):
+                        try:
+                            os.remove(GMAIL_TOKEN_FILE)
+                        except OSError:
+                            pass
+                    return False
             else:
                 if not os.path.exists(GMAIL_CREDENTIALS_FILE):
                     print(f"Error: {GMAIL_CREDENTIALS_FILE} not found.")
@@ -77,7 +87,7 @@ class GmailConnector:
             # Query for emails after cutoff time
             query = f'after:{cutoff_timestamp}'
             
-            # Get list of messages
+            # Get list of messages (token refresh can happen on any API call and raise RefreshError)
             results = self.service.users().messages().list(
                 userId='me', q=query, maxResults=100).execute()
             messages = results.get('messages', [])
@@ -94,6 +104,15 @@ class GmailConnector:
             
             return emails
             
+        except RefreshError:
+            if os.path.exists(GMAIL_TOKEN_FILE):
+                try:
+                    os.remove(GMAIL_TOKEN_FILE)
+                except OSError:
+                    pass
+            raise Exception(
+                'invalid_grant: Your Gmail session expired or was revoked. Please reconnect your account.'
+            )
         except HttpError as error:
             print(f"An error occurred: {error}")
             return []

@@ -1030,289 +1030,152 @@ DASHBOARD_HTML = """
 
         {% if brief_text %}
         <div class="section">
-            <h2 style="color: #1e3c72; margin-bottom: 25px;">📬 Your Daily Email Brief</h2>
+            <h2 style="color: #1e3c72; margin-bottom: 16px; font-size: 24px;">📬 Your Daily Email Brief</h2>
             
-            <!-- Confidence & Statistics Panel -->
-            <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); padding: 25px; border-radius: 12px; margin-bottom: 25px; border: 2px solid #3b82f6;">
-                <!-- Top Stats Row -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; text-align: center; margin-bottom: 25px;">
-                    <div>
-                        <div style="font-size: 36px; font-weight: 700; color: #1e3c72;">{{ brief_stats.total_emails }}</div>
-                        <div style="color: #64748b; font-size: 13px; margin-top: 5px; font-weight: 600;">Total Emails</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 36px; font-weight: 700; color: #dc2626;">{{ brief_stats.critical_count }}</div>
-                        <div style="color: #64748b; font-size: 13px; margin-top: 5px; font-weight: 600;">🔴 Critical</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 36px; font-weight: 700; color: #10b981;">{{ brief_stats.important_count }}</div>
-                        <div style="color: #64748b; font-size: 13px; margin-top: 5px; font-weight: 600;">Important</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 36px; font-weight: 700; color: #94a3b8;">{{ brief_stats.filtered_count }}</div>
-                        <div style="color: #64748b; font-size: 13px; margin-top: 5px; font-weight: 600;">Filtered Out</div>
-                    </div>
-                </div>
-                
-                <!-- Category Breakdown - Prominent Display -->
-                {% if brief_stats.category_breakdown %}
-                <div style="background: white; padding: 20px; border-radius: 12px; margin-top: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                    <h3 style="color: #1e3c72; font-size: 18px; margin-bottom: 20px; text-align: center; font-weight: 700;">📊 Breakdown: {{ brief_stats.important_count }} Important Emails</h3>
-                    <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
-                        {% for category, count in brief_stats.category_breakdown.items()|sort(attribute='1', reverse=True) %}
-                        <div style="background: {% if category == 'Security Alerts' %}#fee2e2{% elif category == 'Work/Jobs' %}#fef3c7{% elif category == 'Financial' %}#dbeafe{% elif category == 'Healthcare' %}#d1fae5{% elif category == 'Promotions' %}#f3f4f6{% elif category == 'Newsletters' %}#f1f5f9{% else %}#f8fafc{% endif %}; 
-                            padding: 15px 24px; border-radius: 10px; border-left: 5px solid {% if category == 'Security Alerts' %}#ef4444{% elif category == 'Work/Jobs' %}#f59e0b{% elif category == 'Financial' %}#3b82f6{% elif category == 'Healthcare' %}#10b981{% elif category == 'Promotions' %}#94a3b8{% elif category == 'Newsletters' %}#64748b{% else %}#64748b{% endif %};
-                            box-shadow: 0 2px 4px rgba(0,0,0,0.1); min-width: 140px;">
-                            <div style="font-size: 28px; font-weight: 700; color: #1e3c72; text-align: center;">{{ count }}</div>
-                            <div style="color: #64748b; font-size: 13px; margin-top: 5px; text-align: center; font-weight: 600;">{{ category }}</div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% if brief_stats.critical_count > 0 %}
-                    <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid #e2e8f0; text-align: center;">
-                        <span style="background: #fee2e2; color: #991b1b; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 600;">
-                            🔴 {{ brief_stats.critical_count }} Critical emails need immediate attention
-                        </span>
-                    </div>
-                    {% endif %}
-                </div>
-                {% endif %}
-                <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #bfdbfe;">
-                    <p style="color: #1e40af; font-size: 15px; line-height: 1.6; margin-bottom: 15px;">
-                        <strong>✓ Quality Check:</strong> We reviewed all {{ brief_stats.total_emails }} emails and selected {{ brief_stats.important_count }} important emails 
-                        ({{ brief_stats.critical_count }} critical) based on your preferences (threshold: {{ "%.1f"|format(brief_stats.threshold * 100) }}%). 
-                        Filtered out {{ brief_stats.filtered_count }} low-priority emails to save you time.
-                    </p>
-                    
-                    <!-- Sender Categories Summary - Collapsible -->
-                    {% if brief_stats.sender_categories %}
-                    <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 15px;">
-                        <details style="cursor: pointer;">
-                            <summary style="color: #1e3c72; font-size: 18px; font-weight: 600; margin-bottom: 15px; list-style: none; cursor: pointer;">
-                                📊 Email Breakdown by Category <span style="font-size: 14px; color: #64748b; font-weight: normal;">(click to expand)</span>
-                            </summary>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
-                                {% for category, data in brief_stats.sender_categories.items() %}
-                                <div class="category-breakdown-card" style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid {% if category == 'Security Alerts' %}#ef4444{% elif category == 'Work/Jobs' %}#f5a623{% elif category == 'Financial' %}#3b82f6{% elif category == 'Healthcare' %}#10b981{% elif category == 'Promotions' %}#94a3b8{% else %}#64748b{% endif %}; {% if data.first_email_id %}cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;{% endif %}" {% if data.first_email_id %}onclick="var el = document.getElementById('email-{{ data.first_email_id }}'); if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('brief-card-highlight'); setTimeout(function(){ el.classList.remove('brief-card-highlight'); }, 2000); }"{% endif %}>
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                        <strong style="color: #1e3c72; font-size: 14px;">{{ category }}</strong>
-                                        <span style="background: {% if data.in_brief > 0 %}#10b981{% else %}#94a3b8{% endif %}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
-                                            {{ data.count }} total{% if data.in_brief > 0 %} | {{ data.in_brief }} in brief{% endif %}
-                                        </span>
-                                    </div>
-                                    <div style="color: #64748b; font-size: 12px; margin-top: 5px;">
-                                        {% for sender in data.senders[:3] %}
-                                        <div style="margin: 3px 0;">• {{ sender[:40] }}{% if sender|length > 40 %}...{% endif %}</div>
-                                        {% endfor %}
-                                        {% if data.sender_count > 3 %}
-                                        <div style="color: #94a3b8; font-style: italic;">+ {{ data.sender_count - 3 }} more</div>
-                                        {% endif %}
-                                    </div>
-                                    {% if data.first_email_id %}
-                                    <div style="font-size: 11px; color: #3b82f6; margin-top: 8px;">↓ Click to jump to summary</div>
-                                    {% endif %}
-                                </div>
-                                {% endfor %}
-                            </div>
-                            <p style="color: #64748b; font-size: 13px; margin-top: 15px; font-style: italic;">
-                                💡 This breakdown helps you see what types of emails you received. Categories with emails "in brief" are highlighted in green.
-                            </p>
-                        </details>
-                    </div>
-                    {% endif %}
-                </div>
+            <!-- Compact stats row -->
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; margin-bottom: 16px; padding: 14px 20px; background: #f0f9ff; border-radius: 10px; border: 1px solid #bae6fd;">
+                <span style="color: #1e3c72; font-weight: 700;">{{ brief_stats.total_emails }}</span>
+                <span style="color: #64748b; font-size: 14px;">total</span>
+                <span style="color: #94a3b8;">·</span>
+                <span style="color: #dc2626; font-weight: 700;">{{ brief_stats.critical_count }}</span>
+                <span style="color: #64748b; font-size: 14px;">critical</span>
+                <span style="color: #94a3b8;">·</span>
+                <span style="color: #059669; font-weight: 700;">{{ brief_stats.important_count }}</span>
+                <span style="color: #64748b; font-size: 14px;">important</span>
+                <span style="color: #94a3b8;">·</span>
+                <span style="color: #64748b; font-weight: 600;">{{ brief_stats.filtered_count }}</span>
+                <span style="color: #64748b; font-size: 14px;">filtered out</span>
             </div>
             
-            <!-- Brief Content -->
-            <div style="margin-top: 30px;">
-                <h3 style="color: #1e3c72; font-size: 20px; margin-bottom: 20px; font-weight: 600;">📋 Summary of Important Emails</h3>
-                <div class="brief-container">
-                    {{ brief_text|safe }}
-                </div>
-                <!-- Navigable email cards: click category above to scroll here -->
-                {% if important_emails %}
-                <div style="margin-top: 24px;">
-                    <p style="color: #64748b; font-size: 14px; margin-bottom: 16px;">Jump to an email below or open in Gmail to reply.</p>
-                    {% for email in important_emails %}
-                    <div id="email-{{ email.id }}" class="brief-email-card" style="background: #f8fafc; border-left: 4px solid #3b82f6; padding: 18px; margin: 14px 0; border-radius: 8px; transition: box-shadow 0.2s;">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
-                            <div style="flex: 1; min-width: 0;">
-                                <strong style="color: #1e3c72; font-size: 15px;">{{ email.subject[:80] }}{% if email.subject|length > 80 %}...{% endif %}</strong><br>
-                                <span style="color: #64748b; font-size: 13px;">From: {{ email.sender }}</span><br>
-                                <span style="color: #94a3b8; font-size: 12px;">{{ email.date }}</span>
-                            </div>
-                            <div style="display: flex; gap: 8px; flex-shrink: 0;">
-                                <a href="https://mail.google.com/mail/u/0/#inbox/{{ email.id }}" target="_blank" rel="noopener" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none;">Open in Gmail to reply</a>
-                                <button type="button" class="btn-view-full" data-email-id="{{ email.id }}" style="background: #e2e8f0; color: #475569; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; border: none; cursor: pointer;">View full email</button>
-                            </div>
-                        </div>
-                        <p class="brief-email-snippet" style="color: #64748b; font-size: 14px; margin-top: 10px;">{{ (email.snippet or '')[:200] }}{% if (email.snippet or '')|length > 200 %}...{% endif %}</p>
-                        <div class="brief-email-body" style="display: none; margin-top: 12px; padding: 12px; background: white; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 14px; color: #334155; line-height: 1.5;"></div>
+            <!-- Categories: one line + collapse -->
+            {% if brief_stats.sender_categories %}
+            <details style="margin-bottom: 20px;">
+                <summary style="cursor: pointer; color: #64748b; font-size: 14px; list-style: none; display: flex; align-items: center; gap: 6px;">
+                    <span style="color: #1e3c72; font-weight: 600;">📊 Categories</span>
+                    {% for category, data in brief_stats.sender_categories.items() %}
+                    <span style="background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 6px; font-size: 12px;">{{ category }} {{ data.count }}</span>
+                    {% endfor %}
+                    <span style="color: #94a3b8; font-size: 12px;">(click to expand, then click a category to jump to email)</span>
+                </summary>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                    {% for category, data in brief_stats.sender_categories.items() %}
+                    <div class="category-breakdown-card" style="background: white; padding: 10px 14px; border-radius: 8px; border-left: 4px solid {% if category == 'Security Alerts' %}#ef4444{% elif category == 'Work/Jobs' %}#f5a623{% elif category == 'Financial' %}#3b82f6{% elif category == 'Healthcare' %}#10b981{% elif category == 'Promotions' %}#94a3b8{% else %}#64748b{% endif %}; {% if data.first_email_id %}cursor: pointer;{% endif %}" {% if data.first_email_id %}onclick="var el = document.getElementById('email-{{ data.first_email_id }}'); if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('brief-card-highlight'); setTimeout(function(){ el.classList.remove('brief-card-highlight'); }, 2000); }"{% endif %}>
+                        <strong style="color: #1e3c72; font-size: 13px;">{{ category }}</strong>
+                        <span style="color: #64748b; font-size: 12px;"> {{ data.count }}{% if data.in_brief > 0 %} ({{ data.in_brief }} in brief){% endif %}</span>
                     </div>
                     {% endfor %}
                 </div>
-                <script>
-                (function(){
-                    document.querySelectorAll('.btn-view-full').forEach(function(btn){
-                        btn.addEventListener('click', function(){
-                            var card = this.closest('.brief-email-card');
-                            var bodyEl = card.querySelector('.brief-email-body');
-                            if (bodyEl.style.display === 'block') {
-                                bodyEl.style.display = 'none';
-                                this.textContent = 'View full email';
-                                return;
-                            }
-                            if (bodyEl.dataset.loaded === '1') {
-                                bodyEl.style.display = 'block';
-                                this.textContent = 'Hide full email';
-                                return;
-                            }
-                            var id = this.getAttribute('data-email-id');
-                            this.textContent = 'Loading...';
-                            fetch('/api/email/' + encodeURIComponent(id)).then(function(r){ return r.json(); }).then(function(data){
-                                bodyEl.innerHTML = (data.body || data.snippet || 'No content').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
-                                bodyEl.dataset.loaded = '1';
-                                bodyEl.style.display = 'block';
-                                btn.textContent = 'Hide full email';
-                            }).catch(function(){
-                                bodyEl.innerHTML = 'Could not load email.';
-                                bodyEl.style.display = 'block';
-                                btn.textContent = 'Hide full email';
-                            }).finally(function(){ btn.textContent = bodyEl.style.display === 'block' ? 'Hide full email' : 'View full email'; });
-                        });
-                    });
-                })();
-                </script>
-                {% endif %}
-            </div>
+            </details>
+            {% endif %}
             
-            <!-- Review Section -->
-            <div style="margin-top: 30px;">
-                <button onclick="toggleReview()" class="btn" style="width: 100%; margin-bottom: 20px;">
-                    <span id="review-toggle-text">👁️ Review All Emails & Validate Selection</span>
-                </button>
-                
-                <div id="review-panel" style="display: none; background: #f8fafc; padding: 25px; border-radius: 12px; border: 2px solid #e2e8f0;">
-                    <h3 style="color: #1e3c72; margin-bottom: 20px;">📋 Complete Email Review</h3>
-                    <p style="color: #64748b; margin-bottom: 20px;">
-                        Review all {{ brief_stats.total_emails }} emails sorted by importance. 
-                        <strong>Emails in the brief are highlighted in green.</strong> 
-                        You can mark any email to help the system learn.
-                    </p>
-                    
-                    <div style="max-height: 600px; overflow-y: auto; overflow-x: hidden;">
-                        {% for email in all_emails %}
-                        <div class="email-item-review {% if email.importance_score > brief_stats.threshold %}brief-included{% endif %}" 
-                             style="background: {% if email.importance_score > brief_stats.threshold %}#f0fdf4{% else %}#ffffff{% endif %}; 
-                                    padding: 15px; margin: 10px 0; border-radius: 8px; 
-                                    border-left: 4px solid {% if email.importance_score > 0.7 %}#dc2626{% elif email.importance_score > 0.5 %}#f59e0b{% elif email.importance_score > 0.4 %}#3b82f6{% else %}#94a3b8{% endif %};
-                                    {% if email.importance_score > brief_stats.threshold %}border: 2px solid #10b981;{% endif %}">
-                            <div style="display: flex; justify-content: space-between; align-items: start;">
-                                <div style="flex: 1;">
-                                    {% if email.importance_score > brief_stats.threshold %}
-                                    <span style="background: #10b981; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-right: 10px;">IN BRIEF</span>
-                                    {% endif %}
-                                    {% if email.importance_score > 0.7 %}
-                                    <span style="background: #dc2626; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-right: 10px; margin-top: 5px; display: inline-block;">🔴 CRITICAL</span>
-                                    {% endif %}
-                                    <strong style="color: #1e3c72;">{{ email.subject }}</strong><br>
-                                    <span style="color: #64748b; font-size: 14px;">From: {{ email.sender }}</span><br>
-                                    <span style="color: #94a3b8; font-size: 12px;">{{ email.date }}</span>
-                                </div>
-                                <div style="margin-left: 15px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-                                    <span data-score="{{ email.importance_score }}" style="background: {% if email.importance_score > 0.7 %}#fee2e2{% elif email.importance_score > 0.5 %}#fef3c7{% elif email.importance_score > 0.4 %}#dbeafe{% else %}#f1f5f9{% endif %}; 
-                                        color: {% if email.importance_score > 0.7 %}#991b1b{% elif email.importance_score > 0.5 %}#92400e{% elif email.importance_score > 0.4 %}#1e40af{% else %}#475569{% endif %}; 
-                                        padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">
-                                        Score: {{ "%.2f"|format(email.importance_score) }}
-                                    </span>
-                                    {% if not email.has_feedback %}
-                                    <div style="display: flex; gap: 5px;">
-                                        <form method="POST" action="/dashboard/feedback" style="display: inline;">
-                                            <input type="hidden" name="email_id" value="{{ email.id }}">
-                                            <input type="hidden" name="is_important" value="true">
-                                            <button type="submit" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">
-                                                ✓
-                                            </button>
-                                        </form>
-                                        <form method="POST" action="/dashboard/feedback" style="display: inline;">
-                                            <input type="hidden" name="email_id" value="{{ email.id }}">
-                                            <input type="hidden" name="is_important" value="false">
-                                            <button type="submit" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">
-                                                ✗
-                                            </button>
-                                        </form>
-                                    </div>
-                                    {% else %}
-                                    <span style="background: {% if email.feedback_value == 1 %}#10b981{% else %}#ef4444{% endif %}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;">
-                                        {% if email.feedback_value == 1 %}✓ Marked{% else %}✗ Marked{% endif %}
-                                    </span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            {% if email.snippet %}
-                            <p style="color: #64748b; font-size: 14px; margin-top: 8px;">{{ email.snippet[:150] }}{% if email.snippet|length > 150 %}...{% endif %}</p>
+            <!-- Single section: summary + links + feedback per email -->
+            <p style="color: #64748b; font-size: 14px; margin-bottom: 16px;">{{ brief_stats.important_count }} emails need your attention. Open in Gmail to reply; mark ✓ / ✗ to improve future briefs.</p>
+            
+            {% if important_emails %}
+            <div style="margin-top: 8px;">
+                {% for email in important_emails %}
+                <div id="email-{{ email.id }}" class="brief-email-card" style="background: #f8fafc; border-left: 4px solid {% if email.importance_score and email.importance_score > 0.7 %}#dc2626{% else %}#3b82f6{% endif %}; padding: 16px; margin: 12px 0; border-radius: 8px; transition: box-shadow 0.2s;">
+                    <div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px;">
+                        <div style="flex: 1; min-width: 0;">
+                            {% if email.importance_score and email.importance_score > 0.7 %}
+                            <span style="background: #dc2626; color: white; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; margin-right: 6px;">Critical</span>
+                            {% endif %}
+                            <strong style="color: #1e3c72; font-size: 15px;">{{ email.subject[:80] }}{% if email.subject|length > 80 %}...{% endif %}</strong><br>
+                            <span style="color: #64748b; font-size: 13px;">{{ email.sender }}</span>
+                            <span style="color: #94a3b8; font-size: 12px;"> · {{ email.date }}</span>
+                        </div>
+                        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
+                            <a href="https://mail.google.com/mail/u/0/#inbox/{{ email.id }}" target="_blank" rel="noopener" style="background: #1e3c72; color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;">Open in Gmail</a>
+                            <button type="button" class="btn-view-full" data-email-id="{{ email.id }}" style="background: #e2e8f0; color: #475569; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; border: none; cursor: pointer;">View full</button>
+                            {% if not email.has_feedback %}
+                            <form method="POST" action="/dashboard/feedback" style="display: inline;">
+                                <input type="hidden" name="email_id" value="{{ email.id }}">
+                                <input type="hidden" name="is_important" value="true">
+                                <button type="submit" style="background: #10b981; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;" title="Mark important">✓</button>
+                            </form>
+                            <form method="POST" action="/dashboard/feedback" style="display: inline;">
+                                <input type="hidden" name="email_id" value="{{ email.id }}">
+                                <input type="hidden" name="is_important" value="false">
+                                <button type="submit" style="background: #ef4444; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;" title="Mark not important">✗</button>
+                            </form>
+                            {% else %}
+                            <span style="background: {% if email.feedback_value == 1 %}#10b981{% else %}#ef4444{% endif %}; color: white; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;">{% if email.feedback_value == 1 %}✓{% else %}✗{% endif %}</span>
                             {% endif %}
                         </div>
-                        {% endfor %}
                     </div>
+                    <p class="brief-email-snippet" style="color: #64748b; font-size: 13px; margin: 10px 0 0 0; line-height: 1.4;">{{ (email.snippet or '')[:220] }}{% if (email.snippet or '')|length > 220 %}...{% endif %}</p>
+                    <div class="brief-email-body" style="display: none; margin-top: 10px; padding: 12px; background: white; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 13px; color: #334155; line-height: 1.5;"></div>
                 </div>
+                {% endfor %}
             </div>
+            <script>
+            (function(){
+                document.querySelectorAll('.btn-view-full').forEach(function(btn){
+                    btn.addEventListener('click', function(){
+                        var card = this.closest('.brief-email-card');
+                        var bodyEl = card.querySelector('.brief-email-body');
+                        if (bodyEl.style.display === 'block') {
+                            bodyEl.style.display = 'none';
+                            this.textContent = 'View full';
+                            return;
+                        }
+                        if (bodyEl.dataset.loaded === '1') {
+                            bodyEl.style.display = 'block';
+                            this.textContent = 'Hide';
+                            return;
+                        }
+                        var id = this.getAttribute('data-email-id');
+                        this.textContent = 'Loading...';
+                        fetch('/api/email/' + encodeURIComponent(id)).then(function(r){ return r.json(); }).then(function(data){
+                            bodyEl.innerHTML = (data.body || data.snippet || 'No content').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                            bodyEl.dataset.loaded = '1';
+                            bodyEl.style.display = 'block';
+                            btn.textContent = 'Hide';
+                        }).catch(function(){
+                            bodyEl.innerHTML = 'Could not load email.';
+                            bodyEl.style.display = 'block';
+                            btn.textContent = 'Hide';
+                        }).finally(function(){ btn.textContent = bodyEl.style.display === 'block' ? 'Hide' : 'View full'; });
+                    });
+                });
+            })();
+            </script>
+            {% endif %}
             
-            <div class="info-box" style="margin-top: 20px;">
-                <strong>💡 Tip:</strong> Click "Review All Emails" above to see the complete list and validate our selection. 
-                Emails included in the brief are highlighted in green. You can mark any email to help the system learn your preferences.
-            </div>
+            <!-- Optional: Review all emails (collapsed) -->
+            <details style="margin-top: 24px;">
+                <summary style="cursor: pointer; color: #64748b; font-size: 14px; font-weight: 600;">👁️ Review all {{ brief_stats.total_emails }} emails & mark for training</summary>
+                <div style="max-height: 400px; overflow-y: auto; margin-top: 12px; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    {% for email in all_emails %}
+                    <div style="background: white; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 3px solid {% if email.importance_score > 0.7 %}#dc2626{% elif email.importance_score > brief_stats.threshold %}#10b981{% else %}#94a3b8{% endif %};">
+                        <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 8px;">
+                            <div style="flex: 1; min-width: 0;">
+                                {% if email.importance_score > brief_stats.threshold %}<span style="font-size: 11px; color: #059669;">in brief</span>{% endif %}
+                                <strong style="color: #1e3c72; font-size: 13px;">{{ email.subject[:60] }}{% if email.subject|length > 60 %}...{% endif %}</strong>
+                                <span style="color: #64748b; font-size: 12px;"> · {{ email.sender[:30] }}{% if email.sender|length > 30 %}...{% endif %}</span>
+                            </div>
+                            {% if not email.has_feedback %}
+                            <div style="display: flex; gap: 4px;">
+                                <form method="POST" action="/dashboard/feedback" style="display: inline;"><input type="hidden" name="email_id" value="{{ email.id }}"><input type="hidden" name="is_important" value="true"><button type="submit" style="background: #10b981; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer;">✓</button></form>
+                                <form method="POST" action="/dashboard/feedback" style="display: inline;"><input type="hidden" name="email_id" value="{{ email.id }}"><input type="hidden" name="is_important" value="false"><button type="submit" style="background: #ef4444; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer;">✗</button></form>
+                            </div>
+                            {% else %}
+                            <span style="font-size: 11px; color: {% if email.feedback_value == 1 %}#059669{% else %}#dc2626{% endif %};">{% if email.feedback_value == 1 %}✓{% else %}✗{% endif %}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
         </div>
         {% endif %}
         
         {% if has_emails %}
+        {% if not brief_text %}
         <div class="section">
-            <h2>📧 Your Emails by Category</h2>
-            <p>Emails organized by category. Mark emails to help the AI learn your preferences!</p>
-            
-            {% if brief_stats.sender_categories %}
-            {% for category, data in brief_stats.sender_categories.items() %}
-            <div style="margin: 30px 0; background: #f8fafc; padding: 20px; border-radius: 12px; border-left: 4px solid {% if category == 'Security Alerts' %}#ef4444{% elif category == 'Work/Jobs' %}#f59e0b{% elif category == 'Financial' %}#3b82f6{% elif category == 'Healthcare' %}#10b981{% else %}#64748b{% endif %};">
-                <h3 style="color: #1e3c72; margin-bottom: 15px;">
-                    {{ category }} 
-                    <span style="font-size: 14px; color: #64748b; font-weight: normal;">({{ data.count }} emails{% if data.in_brief > 0 %}, {{ data.in_brief }} important{% endif %})</span>
-                </h3>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                    <div>
-                        <h4 style="color: #10b981; font-size: 14px; margin-bottom: 10px;">✓ Important ({{ data.in_brief }})</h4>
-                        {% for email in all_emails %}
-                        {% set email_category = categorize_sender(email.sender, email.subject) %}
-                        {% if email_category == category and email.importance_score > brief_stats.threshold %}
-                        <div style="background: white; padding: 12px; margin: 8px 0; border-radius: 8px; border-left: 3px solid #10b981;">
-                            <strong style="color: #1e3c72; font-size: 13px;">{{ email.subject[:50] }}{% if email.subject|length > 50 %}...{% endif %}</strong><br>
-                            <span style="color: #64748b; font-size: 12px;">{{ email.sender[:40] }}{% if email.sender|length > 40 %}...{% endif %}</span>
-                            <span style="float: right; background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">{{ "%.2f"|format(email.importance_score) }}</span>
-                        </div>
-                        {% endif %}
-                        {% endfor %}
-                    </div>
-                    <div>
-                        <h4 style="color: #94a3b8; font-size: 14px; margin-bottom: 10px;">✗ Filtered Out ({{ data.count - data.in_brief }})</h4>
-                        {% for email in all_emails %}
-                        {% set email_category = categorize_sender(email.sender, email.subject) %}
-                        {% if email_category == category and email.importance_score <= brief_stats.threshold %}
-                        <div style="background: white; padding: 12px; margin: 8px 0; border-radius: 8px; border-left: 3px solid #94a3b8; opacity: 0.7;">
-                            <strong style="color: #64748b; font-size: 13px;">{{ email.subject[:50] }}{% if email.subject|length > 50 %}...{% endif %}</strong><br>
-                            <span style="color: #94a3b8; font-size: 12px;">{{ email.sender[:40] }}{% if email.sender|length > 40 %}...{% endif %}</span>
-                            <span style="float: right; background: #94a3b8; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">{{ "%.2f"|format(email.importance_score) }}</span>
-                        </div>
-                        {% endif %}
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-            {% endif %}
-            
-            <div style="margin-top: 30px;">
+            <div style="margin-top: 20px;">
                 <h3 style="color: #1e3c72; margin-bottom: 15px;">📋 All Emails ({{ total_emails }} total)</h3>
-                <p style="color: #64748b; margin-bottom: 15px;">Mark emails as important or not important to help the AI learn your preferences. This improves future briefs!</p>
+                <p style="color: #64748b; margin-bottom: 15px;">Mark emails as important or not to train the AI. Then generate your brief.</p>
                 <div style="max-height: 600px; overflow-y: auto; overflow-x: hidden; margin-top: 20px;">
                     {% for email in emails %}
                 <div style="background: #f8fafc; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 3px solid {% if email.importance_score > 0.7 %}#dc2626{% elif email.importance_score > 0.5 %}#f59e0b{% elif email.importance_score > 0.4 %}#3b82f6{% else %}#94a3b8{% endif %};">
@@ -1366,6 +1229,7 @@ DASHBOARD_HTML = """
                 {% endfor %}
             </div>
         </div>
+        {% endif %}
         {% else %}
         <div class="section">
             <h2>📥 No Emails Yet</h2>
@@ -2460,8 +2324,8 @@ def dashboard_fetch():
         gmail = GmailConnector()
         
         if not gmail.authenticate():
-            flash('Gmail authentication failed. Please reconnect your account.', 'error')
-            return redirect(url_for('dashboard'))
+            flash('Your Gmail session expired or was revoked. Please connect your account again below.', 'error')
+            return redirect(url_for('onboarding'))
         
         emails = gmail.fetch_recent_emails(hours=EMAIL_FETCH_HOURS)
         
@@ -2471,6 +2335,16 @@ def dashboard_fetch():
         
         flash(f'✅ Fetched {len(emails)} emails successfully!', 'success')
     except Exception as e:
+        err = str(e).lower()
+        is_token_error = 'invalid_grant' in err or 'refresherror' in err or 'token has been expired' in err
+        if is_token_error:
+            flash('Your Gmail session expired or was revoked. Please connect your account again below.', 'error')
+            if os.path.exists(TOKEN_FILE):
+                try:
+                    os.remove(TOKEN_FILE)
+                except OSError:
+                    pass
+            return redirect(url_for('onboarding'))
         flash(f'Error fetching emails: {str(e)}', 'error')
     
     return redirect(url_for('dashboard'))
