@@ -134,6 +134,15 @@ class Database:
             )
         ''')
         
+        # Archived in our system only (user confirmed non-priority; we never write to Gmail)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS email_archived (
+                email_id TEXT PRIMARY KEY,
+                archived_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (email_id) REFERENCES emails(id)
+            )
+        ''')
+        
         conn.commit()
         conn.close()
     
@@ -289,6 +298,34 @@ class Database:
             'id': row[0], 'subject': row[1], 'sender': row[2], 'date': row[3],
             'snippet': row[4], 'body': row[5], 'importance_score': row[6]
         }
+    
+    def get_archived_ids(self) -> set:
+        """Return set of email_ids that user has archived in our system (we never touch Gmail)."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT email_id FROM email_archived')
+        ids = {row[0] for row in cursor.fetchall()}
+        conn.close()
+        return ids
+    
+    def archive_email(self, email_id: str):
+        """Mark email as archived in our system only (no Gmail write)."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('INSERT OR IGNORE INTO email_archived (email_id) VALUES (?)', (email_id,))
+        conn.commit()
+        conn.close()
+    
+    def archive_emails(self, email_ids: List[str]):
+        """Mark multiple emails as archived in our system only."""
+        if not email_ids:
+            return
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        for eid in email_ids:
+            cursor.execute('INSERT OR IGNORE INTO email_archived (email_id) VALUES (?)', (eid,))
+        conn.commit()
+        conn.close()
     
     def update_importance_score(self, email_id: str, score: float):
         """Update importance score for an email."""
